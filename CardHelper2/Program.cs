@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using Newtonsoft.Json;
+using System.Linq;
 
 namespace CardHelper
 {
@@ -16,15 +17,16 @@ namespace CardHelper
     {
         public static string inputPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CardCaptions");
         public static int timeBuffer = 5000;
+        
 
         static void Main(string[] args)
         {
+            Dictionary<string, int> wordCounts = new Dictionary<string, int>();
             string termsPath = "../../../../search_terms.json";
             if (File.Exists(termsPath))
             {
                 string termsFileUnparsed = File.ReadAllText(termsPath);
                 termConfig newTerms = JsonConvert.DeserializeObject<termConfig>(termsFileUnparsed);
-                Console.WriteLine(newTerms.terms[0]);
 
                 List<string> sourceList = newTerms.terms;
 
@@ -49,6 +51,19 @@ namespace CardHelper
                             for (int lineIndex = 0; lineIndex < subList.Count; lineIndex++)
                             {
                                 SubtitlesParser.Classes.SubtitleItem curSubLine = subList[lineIndex];
+
+                                string[] curWordList = curSubLine.Lines[0].Split(" ");
+                                for (int wordIndex = 0; wordIndex < curWordList.Length; wordIndex++)
+                                {
+                                    if (!wordCounts.ContainsKey(curWordList[wordIndex]))
+                                    {
+                                        wordCounts[curWordList[wordIndex]] = 1;
+                                    }
+                                    else
+                                    {
+                                        wordCounts[curWordList[wordIndex]]++;
+                                    }
+                                }
 
                                 for (int sourceIndex = 0; sourceIndex < sourceList.Count; sourceIndex++)
                                 {
@@ -76,6 +91,24 @@ namespace CardHelper
                                 Console.WriteLine("-----------------------------------------");
                             }
                         }
+                    }
+
+                    List<KeyValuePair<string, int>> wordCountList = wordCounts.ToList();
+
+                    wordCountList.Sort(
+                        delegate (KeyValuePair<string, int> pair1,
+                        KeyValuePair<string, int> pair2)
+                        {
+                            return pair1.Value.CompareTo(pair2.Value);
+                        }
+                    );
+
+                    Console.WriteLine("word counts logged::");
+                    Console.WriteLine("-------------------------");
+
+                    foreach (KeyValuePair<string, int> curWord in wordCountList)
+                    {
+                        Console.WriteLine(curWord.Value + " | " + curWord.Key);
                     }
                 }
                 else
