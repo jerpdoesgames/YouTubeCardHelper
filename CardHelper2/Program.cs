@@ -22,19 +22,19 @@ namespace CardHelper
         static void Main(string[] args)
         {
             Dictionary<string, int> wordCounts = new Dictionary<string, int>();
-            string termsPath = "../../../../search_terms.json";
-            if (File.Exists(termsPath))
+            string termsPath = System.IO.Path.Combine(inputPath, "search_terms.json");
+            if (Directory.Exists(inputPath))
             {
-                string termsFileUnparsed = File.ReadAllText(termsPath);
-                termConfig newTerms = JsonConvert.DeserializeObject<termConfig>(termsFileUnparsed);
-
-                List<string> sourceList = newTerms.terms;
-
-                int lastTime = 0;
-                string lastTerm;
-
-                if (Directory.Exists(inputPath))
+                if (File.Exists(termsPath))
                 {
+                    string termsFileUnparsed = File.ReadAllText(termsPath);
+                    termConfig newTerms = JsonConvert.DeserializeObject<termConfig>(termsFileUnparsed);
+
+                    List<string> sourceList = newTerms.terms;
+
+                    int lastTime = 0;
+                    string lastTerm;
+
                     string[] fileList = Directory.GetFiles(inputPath); ;
                     Console.WriteLine(fileList.Length + " files found.");
 
@@ -42,6 +42,9 @@ namespace CardHelper
 
                     for (int fileIndex = 0; fileIndex < fileList.Length; fileIndex++)
                     {
+                        if (Path.GetExtension(fileList[fileIndex]) != ".vtt")
+                            continue;
+
                         lastTime = 0;
                         lastTerm = "";
                         using (FileStream currentSubFile = File.OpenRead(fileList[fileIndex]))
