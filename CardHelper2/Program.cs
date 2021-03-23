@@ -56,15 +56,17 @@ namespace CardHelper
                                 SubtitlesParser.Classes.SubtitleItem curSubLine = subList[lineIndex];
 
                                 string[] curWordList = curSubLine.Lines[0].Split(" ");
+                                string curWord;
                                 for (int wordIndex = 0; wordIndex < curWordList.Length; wordIndex++)
                                 {
-                                    if (!wordCounts.ContainsKey(curWordList[wordIndex]))
+                                    curWord = curWordList[wordIndex].ToLower();
+                                    if (!wordCounts.ContainsKey(curWord))
                                     {
-                                        wordCounts[curWordList[wordIndex]] = 1;
+                                        wordCounts[curWord] = 1;
                                     }
                                     else
                                     {
-                                        wordCounts[curWordList[wordIndex]]++;
+                                        wordCounts[curWord]++;
                                     }
                                 }
 
@@ -102,7 +104,12 @@ namespace CardHelper
                         delegate (KeyValuePair<string, int> pair1,
                         KeyValuePair<string, int> pair2)
                         {
-                            return pair1.Value.CompareTo(pair2.Value);
+                            int output = pair1.Value.CompareTo(pair2.Value);
+                            if (output == 0)
+                            {
+                                output = pair1.Key.CompareTo(pair2.Key);    // Fallback alpha sort if same # of occurrances
+                            }
+                            return output;
                         }
                     );
 
