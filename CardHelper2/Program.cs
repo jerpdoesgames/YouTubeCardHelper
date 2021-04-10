@@ -13,14 +13,43 @@ namespace CardHelper
         public List<string> terms;
     }
 
+    public class parsedArgs
+    {
+        public List<string> skipTerms;
+        public bool showWordList;
+        public parsedArgs(string[] args)
+        {
+            skipTerms = new List<string>();
+
+            bool parsingTerms = false;
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "--words")
+                {
+                    parsingTerms = false;
+                    showWordList = true;
+                }
+
+
+                if (args[i] == "--skip")
+                    parsingTerms = true;
+
+                if (parsingTerms)
+                    skipTerms.Add(args[i]);
+            }
+        }
+    }
+
     class Program
     {
         public static string inputPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CardCaptions");
         public static int timeBuffer = 5000;
-        
 
         static void Main(string[] args)
         {
+            parsedArgs argData = new parsedArgs(args);
+
             Dictionary<string, int> wordCounts = new Dictionary<string, int>();
             string termsPath = System.IO.Path.Combine(inputPath, "search_terms.json");
             if (Directory.Exists(inputPath))
@@ -55,22 +84,26 @@ namespace CardHelper
                             {
                                 SubtitlesParser.Classes.SubtitleItem curSubLine = subList[lineIndex];
 
-                                string[] curWordList = curSubLine.Lines[0].Split(" ");
-                                for (int wordIndex = 0; wordIndex < curWordList.Length; wordIndex++)
+
+                                if (argData.showWordList)
                                 {
-                                    if (!wordCounts.ContainsKey(curWordList[wordIndex]))
+                                    string[] curWordList = curSubLine.Lines[0].Split(" ");
+                                    for (int wordIndex = 0; wordIndex < curWordList.Length; wordIndex++)
                                     {
-                                        wordCounts[curWordList[wordIndex]] = 1;
-                                    }
-                                    else
-                                    {
-                                        wordCounts[curWordList[wordIndex]]++;
+                                        if (!wordCounts.ContainsKey(curWordList[wordIndex]))
+                                        {
+                                            wordCounts[curWordList[wordIndex]] = 1;
+                                        }
+                                        else
+                                        {
+                                            wordCounts[curWordList[wordIndex]]++;
+                                        }
                                     }
                                 }
 
                                 for (int sourceIndex = 0; sourceIndex < sourceList.Count; sourceIndex++)
                                 {
-                                    if (curSubLine.Lines[0].Contains(sourceList[sourceIndex]) && (sourceList[sourceIndex] != lastTerm || ((curSubLine.StartTime > lastTime + timeBuffer) && lastTime > 0)))
+                                    if (!argData.skipTerms.Contains(sourceList[sourceIndex]) && curSubLine.Lines[0].Contains(sourceList[sourceIndex]) && (sourceList[sourceIndex] != lastTerm || ((curSubLine.StartTime > lastTime + timeBuffer) && lastTime > 0)))
                                     {
 
                                         if (lastTime == 0)
@@ -96,22 +129,25 @@ namespace CardHelper
                         }
                     }
 
-                    List<KeyValuePair<string, int>> wordCountList = wordCounts.ToList();
-
-                    wordCountList.Sort(
-                        delegate (KeyValuePair<string, int> pair1,
-                        KeyValuePair<string, int> pair2)
-                        {
-                            return pair1.Value.CompareTo(pair2.Value);
-                        }
-                    );
-
-                    Console.WriteLine("word counts logged::");
-                    Console.WriteLine("-------------------------");
-
-                    foreach (KeyValuePair<string, int> curWord in wordCountList)
+                    if (argData.showWordList)
                     {
-                        Console.WriteLine(curWord.Value + " | " + curWord.Key);
+                        List<KeyValuePair<string, int>> wordCountList = wordCounts.ToList();
+
+                        wordCountList.Sort(
+                            delegate (KeyValuePair<string, int> pair1,
+                            KeyValuePair<string, int> pair2)
+                            {
+                                return pair1.Value.CompareTo(pair2.Value);
+                            }
+                        );
+
+                        Console.WriteLine("word counts logged::");
+                        Console.WriteLine("-------------------------");
+
+                        foreach (KeyValuePair<string, int> curWord in wordCountList)
+                        {
+                            Console.WriteLine(curWord.Value + " | " + curWord.Key);
+                        }
                     }
                 }
                 else
