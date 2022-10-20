@@ -11,6 +11,7 @@ namespace CardHelper
     public class termConfig
     {
         public List<string> terms;
+        public List<string> stopWords;
     }
 
     public class parsedArgs
@@ -91,14 +92,18 @@ namespace CardHelper
                                     for (int wordIndex = 0; wordIndex < curWordList.Length; wordIndex++)
                                     {
                                         curWord = curWordList[wordIndex].ToLower();
-                                        if (!wordCounts.ContainsKey(curWord))
+                                        if (newTerms.stopWords.IndexOf(curWord) == -1)
                                         {
-                                            wordCounts[curWord] = 1;
+                                            if (!wordCounts.ContainsKey(curWord))
+                                            {
+                                                wordCounts[curWord] = 1;
+                                            }
+                                            else
+                                            {
+                                                wordCounts[curWord]++;
+                                            }
                                         }
-                                        else
-                                        {
-                                            wordCounts[curWord]++;
-                                        }
+
                                     }
                                 }
 
