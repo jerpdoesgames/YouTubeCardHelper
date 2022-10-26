@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CardHelper2": {
+      "commandName": "Project",
+      "commandLineArgs": "--words"
+    }
+  }
+}
