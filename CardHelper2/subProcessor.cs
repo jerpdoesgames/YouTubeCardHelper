@@ -20,7 +20,12 @@ namespace CardHelper2
         private Dictionary<string, int> m_LowFrequencyTerms;
         public Dictionary<string, int> lowFrequencyTerms { get { return m_LowFrequencyTerms; } }
 
+        private Dictionary<string, long> m_WordRarity;
 
+        private long m_WordRarityMin = -1;
+        private long m_WordRarityMax = -1;
+
+        public Dictionary<string, long> wordRarity { get { return m_WordRarity; } }
 
         public void aggregateGlobalWordCounts()
         {
@@ -284,7 +289,7 @@ namespace CardHelper2
                         string curLineString = curSubLine.Lines[0];
                         if (curLineString != lastLine && curLineString != "[Music]" && curLineString != "[&nbsp;__&nbsp;]")
                         {
-                            float lineScore = 0;
+                            double lineScore = 0;
                             lastLine = curLineString;
 
                             string[] wordsInLine = curLineString.Split(" ");
@@ -320,7 +325,7 @@ namespace CardHelper2
 
                                     uniqueTermString += curTerm + ", ";
 
-                                    lineScore += 2;
+                                    lineScore += 3;
                                     useStyle = true;
                                 }
                             }
@@ -341,25 +346,39 @@ namespace CardHelper2
                                 }
                             }
 
-                            float colorPercent = Math.Min(lineScore, 6.0f) / 6.0f;
+                            long rarityDist = (m_WordRarityMax - m_WordRarityMin);
+
+                            foreach (string curWord in wordsInLine)
+                            {
+                                if (wordRarity.ContainsKey(curWord))
+                                {
+                                    long rarityAmount = (wordRarity[curWord] - m_WordRarityMin);
+                                    double rarityPercent = rarityAmount / rarityDist;
+
+                                    lineScore += 0.33 * (1 - rarityPercent);
+                                }
+                            }
+                            
+
+                            double colorPercent = Math.Min(lineScore, 10.0f) / 10.0f;
 
                             int colorRed = 255;
-                            int colorGreen = (int)(255 - (164 * colorPercent));
-                            int colorBlue = (int)(255 - (164 * colorPercent));
+                            int colorGreen = (int)(255 - (192 * colorPercent));
+                            int colorBlue = (int)(255 - (192 * colorPercent));
 
                             TimeSpan startTimespan = TimeSpan.FromMilliseconds(curSubLine.StartTime);
 
                             string timeString = string.Format("{0}h {1}m {2}s", startTimespan.Hours, startTimespan.Minutes, startTimespan.Seconds);
                             string timecodeString = string.Format("{0}:{1}:{2}:00", startTimespan.Hours.ToString().PadLeft(2, '0'), startTimespan.Minutes.ToString().PadLeft(2, '0'), startTimespan.Seconds.ToString().PadLeft(2, '0'));
 
-                            output += useStyle ? string.Format("<span timeData=\"" + string.Join("<br/>", timeString, rareTermString, uniqueTermString, searchTermString) + "\" timeCode=\"" + timecodeString + "\" style=\"color: rgb({0} {1} {2});\" onmouseover=\"hoverText(this);\" onclick=\"selectEntry(this);\">{3}</span> ", colorRed, colorGreen, colorBlue, curLineString) : "<span>"+curLineString+"</span> ";
+                            output += useStyle ? string.Format("<span timeData=\"" + string.Join("<br/>", timeString, string.Format("<b>Total Score:</b>{0}", Math.Round(lineScore, 2)), rareTermString, uniqueTermString, searchTermString) + "\" timeCode=\"" + timecodeString + "\" style=\"color: rgb({0} {1} {2});\" onmouseover=\"hoverText(this);\" onclick=\"selectEntry(this);\">{3}</span> ", colorRed, colorGreen, colorBlue, curLineString) : "<span>"+curLineString+"</span> ";
                         }
                         
                     }
 
                     string outputPath = System.IO.Path.Combine(curSubFile.filePath.Replace("vtt", "html").Replace("srt", "html").Replace("CardCaptions", "CardCaptions\\Output"));
                     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(outputPath));
-                    string scriptInfo = "<script>function selectEntry(aElement) { navigator.clipboard.writeText(aElement.getAttribute(\"timeCode\")); } \nfunction hoverText(aElement) { let tipElement = document.getElementById(\"tooltip\"); tooltip.innerHTML = aElement.getAttribute(\"timeData\") != null ? aElement.getAttribute(\"timeData\") : \"???\"; let boundingBox = tipElement.getBoundingClientRect(); tooltip.style.left = aElement.offsetLeft; tooltip.style.top = aElement.offsetTop + (boundingBox.bottom - boundingBox.top); }</script>";
+                    string scriptInfo = "<script>function selectEntry(aElement) { navigator.clipboard.writeText(aElement.getAttribute(\"timeCode\")); } \nfunction hoverText(aElement) { let tipElement = document.getElementById(\"tooltip\"); tooltip.innerHTML = aElement.getAttribute(\"timeData\") != null ? aElement.getAttribute(\"timeData\") : \"???\"; let boundingBox = aElement.getBoundingClientRect(); tooltip.style.left = aElement.offsetLeft; tooltip.style.top = aElement.offsetTop + (boundingBox.bottom - boundingBox.top); }</script>";
                     string styleInfo = "<style>\nspan { opacity: 0.75; } span:hover { opacity: 1.0; } #tooltip { width: 20rem; border: 1px solid #DDDDDD; border-radius: 4px; padding: 4px; background: #000000; position: absolute; left: 0px; top: 0px; }\n\n</style>";
                     File.WriteAllText(outputPath, string.Format("<html style=\"background-color: #000000; color: #AAAAAA; font-family: Calibri;\"><head>{1}{2}</head><body>{0}<div id=\"tooltip\"></div></body></html>", output, styleInfo, scriptInfo));
                 }
@@ -382,6 +401,29 @@ namespace CardHelper2
                 m_UniqueTerms = new List<string>();
                 m_LowFrequencyTerms = new Dictionary<string, int>();
 
+                m_WordRarity = new Dictionary<string, long>();
+
+                using (StreamReader wordListReader = new StreamReader(System.IO.Path.Combine(generalConfig.rootPath, "word_rarity_list.csv")))
+                {
+                    int lineIndex = 0;
+                    while (!wordListReader.EndOfStream)
+                    {
+                        string curLine = wordListReader.ReadLine();
+
+                        lineIndex++;
+                        if (lineIndex == 1)
+                            continue;
+
+
+                        string[] values = curLine.Split(",");
+
+                        m_WordRarityMin = m_WordRarityMin == -1 ? long.Parse(values[1]) : Math.Min(m_WordRarityMin, long.Parse(values[1]));
+                        m_WordRarityMax = m_WordRarityMax == -1 ? long.Parse(values[1]) : Math.Max(m_WordRarityMax, long.Parse(values[1]));
+
+                        m_WordRarity[values[0]] = long.Parse(values[1]);
+                    }
+                }
+
                 string[] dirList = Directory.GetDirectories(generalConfig.rootPath);
                 List<Task> taskList = new List<Task>();
                 foreach (string curDir in dirList)
@@ -401,6 +443,7 @@ namespace CardHelper2
                 }
 
                 Task.WaitAll(taskList.ToArray());
+
             }
         }
     }
