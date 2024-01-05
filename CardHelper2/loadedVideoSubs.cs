@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.IO;
-using Newtonsoft.Json;
-using System.Linq;
 
 namespace CardHelper2
 {
@@ -21,6 +20,9 @@ namespace CardHelper2
 
         private int m_LastTermTime = 0;
         private string m_LastTerm;
+
+        private List<SubtitlesParser.Classes.SubtitleItem> m_SubtitleLines;
+        public List<SubtitlesParser.Classes.SubtitleItem> subtitleLines { get { return m_SubtitleLines; } }
 
         private bool isValidTerm(string aTerm)
         {
@@ -103,18 +105,18 @@ namespace CardHelper2
 
         public void aggregateTermData(bool aCollectWordCounts = true, List<string> aWordListOverride = null)
         {
-            SubtitlesParser.Classes.Parsers.VttParser parser = new SubtitlesParser.Classes.Parsers.VttParser();
+            SubtitlesParser.Classes.Parsers.SubParser parser = new SubtitlesParser.Classes.Parsers.SubParser();
 
             m_LastTerm = "";
             m_LastTermTime = 0;
 
             using (FileStream currentSubFile = File.OpenRead(m_FilePath))
             {
-                List<SubtitlesParser.Classes.SubtitleItem> subList = parser.ParseStream(currentSubFile, Encoding.UTF8);
+                m_SubtitleLines = parser.ParseStream(currentSubFile, Encoding.UTF8);
 
-                for (int lineIndex = 0; lineIndex < subList.Count; lineIndex++)
+                for (int lineIndex = 0; lineIndex < m_SubtitleLines.Count; lineIndex++)
                 {
-                    SubtitlesParser.Classes.SubtitleItem curSubLine = subList[lineIndex];
+                    SubtitlesParser.Classes.SubtitleItem curSubLine = m_SubtitleLines[lineIndex];
 
                     if (aCollectWordCounts)
                         collectWordCountsFromLine(curSubLine);
@@ -132,7 +134,7 @@ namespace CardHelper2
                 m_FilePath = aFilePath;
                 m_Config = aConfig;
 
-                bool wordCounts = m_Config.args.showWordCounts || m_Config.args.searchRareWords || m_Config.args.showRareWords || m_Config.args.searchUniqueWords || m_Config.args.showUniqueWords;
+                bool wordCounts = m_Config.args.showWordCounts || m_Config.args.searchRareWords || m_Config.args.showRareWords || m_Config.args.searchUniqueWords || m_Config.args.showUniqueWords || m_Config.args.outputHeatmap;
 
                 aggregateTermData(wordCounts);
 

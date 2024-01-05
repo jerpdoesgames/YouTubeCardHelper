@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using Newtonsoft.Json;
-using System.Linq;
 
 namespace CardHelper2
 {
@@ -26,7 +21,8 @@ namespace CardHelper2
                         configData.args.searchRareWords ||
                         configData.args.searchUniqueWords ||
                         configData.args.showRareWords ||
-                        configData.args.showUniqueWords
+                        configData.args.showUniqueWords ||
+                        configData.args.outputHeatmap
                     )
                     {
                         mainProcessor.aggregateWordCounts();
@@ -49,6 +45,9 @@ namespace CardHelper2
 
                     if (configData.args.showRareWords)
                         mainProcessor.outputRareTerms();
+
+                    if (configData.args.outputHeatmap)
+                        mainProcessor.outputHeatmap();
                 }
             }
         }

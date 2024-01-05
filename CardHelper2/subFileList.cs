@@ -64,21 +64,21 @@ namespace CardHelper2
 
                 foreach (string curFile in fileList)
                 {
-                    if (Path.GetExtension(curFile) != ".vtt")
-                        continue;
-
-                    videoFileTasks.Add(
-                        Task.Run(() => {
-                            loadedVideoSubs newLoadedSubs = new loadedVideoSubs(curFile, m_Config);
-                            if (newLoadedSubs.loadSuccess)
-                            {
-                                lock (entries)
+                    if (Path.GetExtension(curFile) == ".vtt" || Path.GetExtension(curFile) == ".srt")
+                    {
+                        videoFileTasks.Add(
+                            Task.Run(() => {
+                                loadedVideoSubs newLoadedSubs = new loadedVideoSubs(curFile, m_Config);
+                                if (newLoadedSubs.loadSuccess)
                                 {
-                                    entries.Add(newLoadedSubs);
+                                    lock (entries)
+                                    {
+                                        entries.Add(newLoadedSubs);
+                                    }
                                 }
-                            }
-                        })
-                    );
+                            })
+                        );
+                    }
                 }
 
                 Task.WaitAll(videoFileTasks.ToArray());

@@ -1,10 +1,10 @@
-﻿using System;
+﻿using SubtitlesParser.Classes;
+using System;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
-using Newtonsoft.Json;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace CardHelper2
 {
@@ -55,7 +55,8 @@ namespace CardHelper2
                     m_Config.args.searchRareWords ||
                     m_Config.args.searchUniqueWords ||
                     m_Config.args.showUniqueWords ||
-                    m_Config.args.showRareWords
+                    m_Config.args.showRareWords ||
+                    m_Config.args.outputHeatmap
                 )
                 {
                     curList.aggregateWordCountsIntoOtherVideos();
@@ -162,7 +163,8 @@ namespace CardHelper2
                 m_Config.args.searchRareWords ||
                 m_Config.args.searchUniqueWords ||
                 m_Config.args.showUniqueWords ||
-                m_Config.args.showRareWords
+                m_Config.args.showRareWords ||
+                m_Config.args.outputHeatmap
             )
             {
                 aggregateWordCountsBetweenLists();
@@ -262,6 +264,105 @@ namespace CardHelper2
                 }
 
                 Console.WriteLine("// End SubList ========================================================");
+            }
+        }
+
+        /// <summary>
+        /// Outputs HTML pages showing the full transcript with each word colored relative to the relative importance of each word.
+        /// </summary>
+        public void outputHeatmap()
+        {
+            foreach (subFileList curList in m_ParsedSubLists)
+            {
+                foreach (loadedVideoSubs curSubFile in curList.entries)
+                {
+                    string output = "";
+                    string lastLine = "";
+
+                    foreach (SubtitleItem curSubLine in curSubFile.subtitleLines)
+                    {
+                        string curLineString = curSubLine.Lines[0];
+                        if (curLineString != lastLine && curLineString != "[Music]" && curLineString != "[&nbsp;__&nbsp;]")
+                        {
+                            float lineScore = 0;
+                            lastLine = curLineString;
+
+                            string[] wordsInLine = curLineString.Split(" ");
+                            bool useStyle = false;
+
+                            string rareTermString = "";
+                            string uniqueTermString = "";
+                            string searchTermString = "";
+
+                            foreach(string curTerm in lowFrequencyTerms.Keys.ToList())
+                            {
+                                if (wordsInLine.Contains(curTerm))
+                                {
+                                    if (string.IsNullOrEmpty(rareTermString))
+                                    {
+                                        rareTermString = "<b>Rare Terms:</b> ";
+                                    }
+
+                                    rareTermString += curTerm + ", ";
+                                    lineScore++;
+                                    useStyle = true;
+                                }
+                            }
+
+                            foreach(string curTerm in uniqueTerms)
+                            {
+                                if (wordsInLine.Contains(curTerm))
+                                {
+                                    if (string.IsNullOrEmpty(uniqueTermString))
+                                    {
+                                        uniqueTermString = "<b>Unique Terms:</b> ";
+                                    }
+
+                                    uniqueTermString += curTerm + ", ";
+
+                                    lineScore += 2;
+                                    useStyle = true;
+                                }
+                            }
+
+                            foreach(string curTerm in m_Config.searchTerms)
+                            {
+                                if (wordsInLine.Contains(curTerm))
+                                {
+                                    if (string.IsNullOrEmpty(searchTermString))
+                                    {
+                                        searchTermString = "<b>Search Terms:</b> ";
+                                    }
+
+                                    searchTermString += curTerm + ", ";
+
+                                    lineScore += 2;
+                                    useStyle = true;
+                                }
+                            }
+
+                            float colorPercent = Math.Min(lineScore, 6.0f) / 6.0f;
+
+                            int colorRed = 255;
+                            int colorGreen = (int)(255 - (164 * colorPercent));
+                            int colorBlue = (int)(255 - (164 * colorPercent));
+
+                            TimeSpan startTimespan = TimeSpan.FromMilliseconds(curSubLine.StartTime);
+
+                            string timeString = string.Format("{0}h {1}m {2}s", startTimespan.Hours, startTimespan.Minutes, startTimespan.Seconds);
+                            string timecodeString = string.Format("{0}:{1}:{2}:00", startTimespan.Hours.ToString().PadLeft(2, '0'), startTimespan.Minutes.ToString().PadLeft(2, '0'), startTimespan.Seconds.ToString().PadLeft(2, '0'));
+
+                            output += useStyle ? string.Format("<span timeData=\"" + string.Join("<br/>", timeString, rareTermString, uniqueTermString, searchTermString) + "\" timeCode=\"" + timecodeString + "\" style=\"color: rgb({0} {1} {2});\" onmouseover=\"hoverText(this);\" onclick=\"selectEntry(this);\">{3}</span> ", colorRed, colorGreen, colorBlue, curLineString) : "<span>"+curLineString+"</span> ";
+                        }
+                        
+                    }
+
+                    string outputPath = System.IO.Path.Combine(curSubFile.filePath.Replace("vtt", "html").Replace("srt", "html").Replace("CardCaptions", "CardCaptions\\Output"));
+                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(outputPath));
+                    string scriptInfo = "<script>function selectEntry(aElement) { navigator.clipboard.writeText(aElement.getAttribute(\"timeCode\")); } \nfunction hoverText(aElement) { let tipElement = document.getElementById(\"tooltip\"); tooltip.innerHTML = aElement.getAttribute(\"timeData\") != null ? aElement.getAttribute(\"timeData\") : \"???\"; let boundingBox = tipElement.getBoundingClientRect(); tooltip.style.left = aElement.offsetLeft; tooltip.style.top = aElement.offsetTop + (boundingBox.bottom - boundingBox.top); }</script>";
+                    string styleInfo = "<style>\nspan { opacity: 0.75; } span:hover { opacity: 1.0; } #tooltip { width: 20rem; border: 1px solid #DDDDDD; border-radius: 4px; padding: 4px; background: #000000; position: absolute; left: 0px; top: 0px; }\n\n</style>";
+                    File.WriteAllText(outputPath, string.Format("<html style=\"background-color: #000000; color: #AAAAAA; font-family: Calibri;\"><head>{1}{2}</head><body>{0}<div id=\"tooltip\"></div></body></html>", output, styleInfo, scriptInfo));
+                }
             }
         }
 

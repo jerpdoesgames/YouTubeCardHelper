@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace CardHelper2
 {
@@ -13,6 +11,7 @@ namespace CardHelper2
         private bool m_SearchUniqueWords;
         private bool m_SearchRareWords;
         private bool m_EmptyArgs;
+        private bool m_OutputHeatmap;
 
         public bool showWordList { get { return m_ShowWordList; } }
         public bool showWordCounts { get { return m_ShowWordCounts; } }
@@ -20,6 +19,7 @@ namespace CardHelper2
         public bool showRareWords { get { return m_ShowRareWords; } }
         public bool searchUniqueWords { get { return m_SearchUniqueWords; } }
         public bool searchRareWords { get { return m_SearchRareWords; } }
+        public bool outputHeatmap { get { return m_OutputHeatmap; } }
         public bool emptyArgs { get { return m_EmptyArgs; } }
         public argumentConfig(string[] args)
         {
@@ -34,7 +34,9 @@ namespace CardHelper2
                 Console.WriteLine("--count                Show word counts.");
                 Console.WriteLine("--unique_search        Show find times for unique terms.");
                 Console.WriteLine("--rare_search          Show find times for rare terms.");
+                Console.WriteLine("--output_heatmap       Outputs a heatmap html file for all captions.");
                 Console.WriteLine("--display_all          Enable all prior options.");
+                
                 m_EmptyArgs = true;
             }
             else
@@ -65,13 +67,18 @@ namespace CardHelper2
                         case "--rare_search":
                             m_SearchRareWords = true;
                             break;
+                        case "--output_heatmap":
+                            m_OutputHeatmap = true;
+                            break;
                         case "--display_all":
                             m_ShowRareWords = true;
                             m_ShowUniqueWords = true;
                             m_ShowWordCounts = true;
                             m_ShowWordList = true;
                             m_SearchRareWords = true;
+                            m_SearchRareWords = true;
                             m_SearchUniqueWords = true;
+                            m_OutputHeatmap = true;
                             break;
                     }
                 }

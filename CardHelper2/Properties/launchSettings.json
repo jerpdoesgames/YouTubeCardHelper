@@ -2,7 +2,7 @@
   "profiles": {
     "CardHelper2": {
       "commandName": "Project",
-      "commandLineArgs": "--words"
+      "commandLineArgs": " --output_heatmap"
     }
   }
 }
