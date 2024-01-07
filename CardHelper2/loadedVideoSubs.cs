@@ -31,6 +31,7 @@ namespace CardHelper2
 
         private foundTermData checkCreateFoundTerm(string aTerm)
         {
+            aTerm = subProcessor.removeNonAlphanumeric(aTerm);
             if (!termData.ContainsKey(aTerm))
             {
                 lock (termData)
@@ -56,7 +57,6 @@ namespace CardHelper2
                 string[] curLineTermsLower = aSubLine.Lines[0].ToLower().Split(" ");
                 if (!m_Config.skipTerms.Contains(curTermLower) && curLineTermsLower.Contains(curTermLower))
                 {
-                    
                     foundTermData curTerm = checkCreateFoundTerm(curTermLower);
 
                     bool foundNearbyTerm = false;

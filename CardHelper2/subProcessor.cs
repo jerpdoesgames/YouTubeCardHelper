@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -26,6 +27,12 @@ namespace CardHelper2
         private long m_WordRarityMax = -1;
 
         public Dictionary<string, long> wordRarity { get { return m_WordRarity; } }
+
+        public static string removeNonAlphanumeric(string aInput)
+        {
+            Regex rgx = new Regex("[^a-zA-Z0-9 -]");
+            return rgx.Replace(aInput, "");
+        }
 
         public void aggregateGlobalWordCounts()
         {
@@ -289,19 +296,32 @@ namespace CardHelper2
                         string curLineString = curSubLine.Lines[0];
                         if (curLineString != lastLine && curLineString != "[Music]" && curLineString != "[&nbsp;__&nbsp;]")
                         {
-                            double lineScore = 0;
+                            double rareTermCount = 0;
+                            double uniqueTermCount = 0;
+                            double rarityDistScore = 0;
+                            double searchTermCount = 0;
                             lastLine = curLineString;
 
-                            string[] wordsInLine = curLineString.Split(" ");
+
+                            
+                            List<string> wordsInLine = curLineString.Split(" ").ToList<string>();
+                            List<string> lineWordsToSearch = new List<string>();
+
+                            foreach (string curWord in wordsInLine)
+                            {
+                                lineWordsToSearch.Add(removeNonAlphanumeric(curWord));
+                            }
+
                             bool useStyle = false;
 
                             string rareTermString = "";
                             string uniqueTermString = "";
                             string searchTermString = "";
+                            string rarityScoreString = "";
 
-                            foreach(string curTerm in lowFrequencyTerms.Keys.ToList())
+                            foreach (string curTerm in lowFrequencyTerms.Keys.ToList())
                             {
-                                if (wordsInLine.Contains(curTerm))
+                                if (lineWordsToSearch.Contains(curTerm))
                                 {
                                     if (string.IsNullOrEmpty(rareTermString))
                                     {
@@ -309,14 +329,13 @@ namespace CardHelper2
                                     }
 
                                     rareTermString += curTerm + ", ";
-                                    lineScore++;
-                                    useStyle = true;
+                                    rareTermCount++;
                                 }
                             }
 
                             foreach(string curTerm in uniqueTerms)
                             {
-                                if (wordsInLine.Contains(curTerm))
+                                if (lineWordsToSearch.Contains(curTerm))
                                 {
                                     if (string.IsNullOrEmpty(uniqueTermString))
                                     {
@@ -325,14 +344,14 @@ namespace CardHelper2
 
                                     uniqueTermString += curTerm + ", ";
 
-                                    lineScore += 3;
+                                    uniqueTermCount++;
                                     useStyle = true;
                                 }
                             }
 
                             foreach(string curTerm in m_Config.searchTerms)
                             {
-                                if (wordsInLine.Contains(curTerm))
+                                if (lineWordsToSearch.Contains(curTerm))
                                 {
                                     if (string.IsNullOrEmpty(searchTermString))
                                     {
@@ -341,37 +360,48 @@ namespace CardHelper2
 
                                     searchTermString += curTerm + ", ";
 
-                                    lineScore += 2;
+                                    searchTermCount++;
                                     useStyle = true;
                                 }
                             }
 
                             long rarityDist = (m_WordRarityMax - m_WordRarityMin);
 
-                            foreach (string curWord in wordsInLine)
+                            foreach (string curWord in lineWordsToSearch)
                             {
                                 if (wordRarity.ContainsKey(curWord))
                                 {
                                     long rarityAmount = (wordRarity[curWord] - m_WordRarityMin);
                                     double rarityPercent = rarityAmount / rarityDist;
 
-                                    lineScore += 0.33 * (1 - rarityPercent);
+                                    rarityDistScore += 0.4 * (1 - rarityPercent);
                                 }
                             }
-                            
 
-                            double colorPercent = Math.Min(lineScore, 10.0f) / 10.0f;
+                            if (rarityDistScore > 0)
+                            {
+                                rarityScoreString = "<b>Rarity Score:</b> " + rarityDistScore;
+                            }
 
-                            int colorRed = 255;
-                            int colorGreen = (int)(255 - (192 * colorPercent));
-                            int colorBlue = (int)(255 - (192 * colorPercent));
+                            if (rarityDistScore + rareTermCount >= 3.5)
+                            {
+                                useStyle = true;
+                            }
+
+                            double redPercent = Math.Min(rarityDistScore + rareTermCount, 8.0f) / 8.0f;
+                            double greenPercent = Math.Min(uniqueTermCount, 3.0f) / 3.0f; 
+                            double bluePercent = Math.Min(searchTermCount, 2.0f) / 2.0f;
+
+                            int colorRed = (int)(64 + (192 * redPercent));
+                            int colorGreen = (int)(64 + (192 * greenPercent));
+                            int colorBlue = (int)(64 + (192 * bluePercent));
 
                             TimeSpan startTimespan = TimeSpan.FromMilliseconds(curSubLine.StartTime);
 
                             string timeString = string.Format("{0}h {1}m {2}s", startTimespan.Hours, startTimespan.Minutes, startTimespan.Seconds);
                             string timecodeString = string.Format("{0}:{1}:{2}:00", startTimespan.Hours.ToString().PadLeft(2, '0'), startTimespan.Minutes.ToString().PadLeft(2, '0'), startTimespan.Seconds.ToString().PadLeft(2, '0'));
 
-                            output += useStyle ? string.Format("<span timeData=\"" + string.Join("<br/>", timeString, string.Format("<b>Total Score:</b>{0}", Math.Round(lineScore, 2)), rareTermString, uniqueTermString, searchTermString) + "\" timeCode=\"" + timecodeString + "\" style=\"color: rgb({0} {1} {2});\" onmouseover=\"hoverText(this);\" onclick=\"selectEntry(this);\">{3}</span> ", colorRed, colorGreen, colorBlue, curLineString) : "<span>"+curLineString+"</span> ";
+                            output += useStyle ? string.Format("<span class=\"termEntry\" timeData=\"" + string.Join("<br/>", timeString, string.Format("<b>Total Score:</b>{0}", Math.Round(rareTermCount + uniqueTermCount + rarityDistScore + searchTermCount, 2)), rareTermString, uniqueTermString, searchTermString, rarityScoreString) + "\" timeCode=\"" + timecodeString + "\" style=\"color: rgb({0} {1} {2});\" onmouseover=\"hoverText(this);\" onclick=\"selectEntry(this);\">{3}</span> ", colorRed, colorGreen, colorBlue, curLineString) : "<span>"+curLineString+"</span> ";
                         }
                         
                     }
@@ -379,7 +409,7 @@ namespace CardHelper2
                     string outputPath = System.IO.Path.Combine(curSubFile.filePath.Replace("vtt", "html").Replace("srt", "html").Replace("CardCaptions", "CardCaptions\\Output"));
                     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(outputPath));
                     string scriptInfo = "<script>function selectEntry(aElement) { navigator.clipboard.writeText(aElement.getAttribute(\"timeCode\")); } \nfunction hoverText(aElement) { let tipElement = document.getElementById(\"tooltip\"); tooltip.innerHTML = aElement.getAttribute(\"timeData\") != null ? aElement.getAttribute(\"timeData\") : \"???\"; let boundingBox = aElement.getBoundingClientRect(); tooltip.style.left = aElement.offsetLeft; tooltip.style.top = aElement.offsetTop + (boundingBox.bottom - boundingBox.top); }</script>";
-                    string styleInfo = "<style>\nspan { opacity: 0.75; } span:hover { opacity: 1.0; } #tooltip { width: 20rem; border: 1px solid #DDDDDD; border-radius: 4px; padding: 4px; background: #000000; position: absolute; left: 0px; top: 0px; }\n\n</style>";
+                    string styleInfo = "<style>.termEntry { text-decoration: underline; cursor: pointer; }\n\nspan { opacity: 0.75; } span:hover { opacity: 1.0; } #tooltip { width: 20rem; border: 1px solid #DDDDDD; border-radius: 4px; padding: 4px; background: #000000; position: absolute; left: 0px; top: 0px; }\n\n</style>";
                     File.WriteAllText(outputPath, string.Format("<html style=\"background-color: #000000; color: #AAAAAA; font-family: Calibri;\"><head>{1}{2}</head><body>{0}<div id=\"tooltip\"></div></body></html>", output, styleInfo, scriptInfo));
                 }
             }
